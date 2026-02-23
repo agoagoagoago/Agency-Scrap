@@ -21,16 +21,23 @@ def initiate_download():
 
 
 def poll_download():
+    wait = POLL_INTERVAL
     for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
         log.info("Poll attempt %d/%d", attempt, POLL_MAX_ATTEMPTS)
         resp = requests.get(POLL_URL, timeout=30)
+        if resp.status_code == 429:
+            backoff = min(wait * 2, 120)
+            log.warning("Rate limited (429), backing off %ds...", backoff)
+            time.sleep(backoff)
+            wait = backoff
+            continue
         resp.raise_for_status()
         data = resp.json()
         code = data.get("data", {}).get("readyToDownload")
         if code is True:
             return data["data"]["url"]
-        log.info("Not ready yet, waiting %ds...", POLL_INTERVAL)
-        time.sleep(POLL_INTERVAL)
+        log.info("Not ready yet, waiting %ds...", wait)
+        time.sleep(wait)
     raise TimeoutError("Download not ready after max poll attempts")
 
 
