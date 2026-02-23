@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CEA Salesperson Registry</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+<main class="container">
+    <h1>CEA Salesperson Registry Dashboard</h1>
+
+    {% if metrics %}
+    <p><small>Last updated: {{ metrics.run_at.strftime('%d %b %Y, %I:%M %p') }} &mdash; Status: {{ metrics.status }}</small></p>
+
+    <div class="grid">
+        <article>
+            <header>Total Agencies</header>
+            <h2>{{ "{:,}".format(metrics.total_agencies) }}</h2>
+        </article>
+        <article>
+            <header>Total Agents</header>
+            <h2>{{ "{:,}".format(metrics.total_agents) }}</h2>
+        </article>
+    </div>
+    <div class="grid">
+        <article>
+            <header>Newly Added Agencies</header>
+            <h2>{{ metrics.new_agencies }}</h2>
+        </article>
+        <article>
+            <header>Agencies Removed</header>
+            <h2>{{ metrics.removed_agencies }}</h2>
+        </article>
+    </div>
+    <div class="grid">
+        <article>
+            <header>Newly Added Agents</header>
+            <h2>{{ "{:,}".format(metrics.new_agents) }}</h2>
+        </article>
+        <article>
+            <header>Agents Removed</header>
+            <h2>{{ "{:,}".format(metrics.removed_agents) }}</h2>
+        </article>
+    </div>
+
+    {% if metrics.new_agency_names %}
+    <details open>
+        <summary>New Agencies ({{ metrics.new_agency_names|length }})</summary>
+        <ul>
+            {% for name in metrics.new_agency_names %}
+            <li>{{ name }}</li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+
+    {% if metrics.removed_agency_names %}
+    <details open>
+        <summary>Removed Agencies ({{ metrics.removed_agency_names|length }})</summary>
+        <ul>
+            {% for name in metrics.removed_agency_names %}
+            <li>{{ name }}</li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+
+    {% else %}
+    <p>No scrape data yet. Run the scraper to populate the dashboard.</p>
+    {% endif %}
+
+    <h2>Scrape History</h2>
+    {% if runs %}
+    <figure>
+    <table>
+        <thead>
+            <tr>
+                <th>Run Time</th>
+                <th>Agencies</th>
+                <th>Agents</th>
+                <th>+Agencies</th>
+                <th>-Agencies</th>
+                <th>+Agents</th>
+                <th>-Agents</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr>
+                <td>{{ run.run_at.strftime('%d %b %Y, %I:%M %p') }}</td>
+                <td>{{ "{:,}".format(run.total_agencies) }}</td>
+                <td>{{ "{:,}".format(run.total_agents) }}</td>
+                <td>{{ run.new_agencies }}</td>
+                <td>{{ run.removed_agencies }}</td>
+                <td>{{ "{:,}".format(run.new_agents) }}</td>
+                <td>{{ "{:,}".format(run.removed_agents) }}</td>
+                <td>{{ run.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </figure>
+    {% else %}
+    <p>No history available.</p>
+    {% endif %}
+</main>
+</body>
+</html>
