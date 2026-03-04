@@ -23,14 +23,18 @@ def initiate_download():
 
 def poll_download():
     wait = POLL_INTERVAL
-    for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
+    attempt = 0
+    rate_limit_hits = 0
+    while attempt < POLL_MAX_ATTEMPTS:
+        attempt += 1
         log.info("Poll attempt %d/%d", attempt, POLL_MAX_ATTEMPTS)
         resp = requests.get(POLL_URL, timeout=30)
         if resp.status_code == 429:
-            backoff = min(wait * 2, 120)
-            log.warning("Rate limited (429), backing off %ds...", backoff)
+            rate_limit_hits += 1
+            backoff = min(30 * (2 ** rate_limit_hits), 300)
+            log.warning("Rate limited (429) x%d, backing off %ds...", rate_limit_hits, backoff)
             time.sleep(backoff)
-            wait = backoff
+            attempt -= 1  # don't count rate limits toward max attempts
             continue
         resp.raise_for_status()
         data = resp.json()
