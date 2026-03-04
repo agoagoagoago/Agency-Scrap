@@ -23,19 +23,26 @@ def initiate_download():
 
 def poll_download():
     wait = POLL_INTERVAL
-    attempt = 0
-    rate_limit_hits = 0
-    while attempt < POLL_MAX_ATTEMPTS:
-        attempt += 1
+    consecutive_429 = 0
+    for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
         log.info("Poll attempt %d/%d", attempt, POLL_MAX_ATTEMPTS)
         resp = requests.get(POLL_URL, timeout=30)
         if resp.status_code == 429:
-            rate_limit_hits += 1
-            backoff = min(30 * (2 ** rate_limit_hits), 300)
-            log.warning("Rate limited (429) x%d, backing off %ds...", rate_limit_hits, backoff)
-            time.sleep(backoff)
-            attempt -= 1  # don't count rate limits toward max attempts
+            consecutive_429 += 1
+            if consecutive_429 >= 3:
+                log.warning("3 consecutive 429s, re-initiating download...")
+                try:
+                    initiate_download()
+                except Exception:
+                    log.warning("Re-initiate failed, continuing anyway")
+                consecutive_429 = 0
+                time.sleep(60)
+            else:
+                backoff = min(POLL_INTERVAL * (2 ** consecutive_429), 60)
+                log.warning("Rate limited (429) x%d, backing off %ds...", consecutive_429, backoff)
+                time.sleep(backoff)
             continue
+        consecutive_429 = 0
         resp.raise_for_status()
         data = resp.json()
         code = data.get("data", {}).get("readyToDownload")
