@@ -120,7 +120,7 @@ def compare(new_rows, old_master):
     for r in new_rows:
         name = r["estate_agent_name"]
         agency_counts[name] = agency_counts.get(name, 0) + 1
-    top_agencies = sorted(agency_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_agencies = sorted(agency_counts.items(), key=lambda x: x[1], reverse=True)[:20]
 
     return {
         "total_agencies": len(new_agencies),
@@ -158,7 +158,7 @@ def send_email(metrics):
         for name in metrics["removed_agency_names"]:
             body_lines.append(f"  - {name}")
     if metrics.get("top_agencies"):
-        body_lines.append("\nTop 10 Agencies by Agent Count:")
+        body_lines.append("\nTop 20 Agencies by Agent Count:")
         for i, (name, count) in enumerate(metrics["top_agencies"], 1):
             body_lines.append(f"  {i}. {name} ({count:,})")
 
@@ -197,7 +197,7 @@ def send_telegram(metrics):
             for name in metrics["removed_agency_names"]:
                 lines.append(f"  • {name}")
         if metrics.get("top_agencies"):
-            lines.append("\n*Top 10 Agencies by Agent Count:*")
+            lines.append("\n*Top 20 Agencies by Agent Count:*")
             for i, (name, count) in enumerate(metrics["top_agencies"], 1):
                 lines.append(f"  {i}. {name} ({count:,})")
 
