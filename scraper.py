@@ -115,6 +115,13 @@ def compare(new_rows, old_master):
             "change_type": "removed",
         })
 
+    # Top 10 agencies by agent count
+    agency_counts = {}
+    for r in new_rows:
+        name = r["estate_agent_name"]
+        agency_counts[name] = agency_counts.get(name, 0) + 1
+    top_agencies = sorted(agency_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
     return {
         "total_agencies": len(new_agencies),
         "total_agents": len(new_reg_nos),
@@ -125,6 +132,7 @@ def compare(new_rows, old_master):
         "new_agency_names": sorted(added_agency_names),
         "removed_agency_names": sorted(removed_agency_names),
         "changes": changes,
+        "top_agencies": top_agencies,
     }
 
 
@@ -149,6 +157,10 @@ def send_email(metrics):
         body_lines.append("\nRemoved agencies:")
         for name in metrics["removed_agency_names"]:
             body_lines.append(f"  - {name}")
+    if metrics.get("top_agencies"):
+        body_lines.append("\nTop 10 Agencies by Agent Count:")
+        for i, (name, count) in enumerate(metrics["top_agencies"], 1):
+            body_lines.append(f"  {i}. {name} ({count:,})")
 
     payload = {
         "subject": f"CEA Scrape: {metrics['new_agents']} added, {metrics['removed_agents']} removed",
@@ -184,6 +196,10 @@ def send_telegram(metrics):
             lines.append("\n*Removed agencies:*")
             for name in metrics["removed_agency_names"]:
                 lines.append(f"  • {name}")
+        if metrics.get("top_agencies"):
+            lines.append("\n*Top 10 Agencies by Agent Count:*")
+            for i, (name, count) in enumerate(metrics["top_agencies"], 1):
+                lines.append(f"  {i}. {name} ({count:,})")
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         resp = requests.post(url, json={

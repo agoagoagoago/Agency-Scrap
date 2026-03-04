@@ -4,6 +4,12 @@ DATABASE_URL = os.environ["DATABASE_URL"]
 FORMSPREE_ENDPOINT = os.environ.get("FORMSPREE_ENDPOINT", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "")
+
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "")
 
 CEA_DATASET_ID = "d_07c63be0f37e6e59c07a4ddc2fd87fcb"
 CEA_BASE_URL = f"https://api-open.data.gov.sg/v1/public/api/datasets/{CEA_DATASET_ID}"
