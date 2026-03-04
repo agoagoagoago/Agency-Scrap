@@ -2,6 +2,7 @@ import csv
 import io
 import logging
 import time
+from datetime import datetime, timezone, timedelta
 
 import requests
 
@@ -178,8 +179,10 @@ def send_telegram(metrics):
         log.info("Telegram not configured, skipping")
         return
     try:
+        now = datetime.now(timezone(timedelta(hours=8)))
+        timestamp = f"{now.strftime('%-d %b, %-I:%M')} {now.strftime('%p').lower()}"
         lines = [
-            "*CEA - Latest Update*",
+            f"*CEA - Latest Update ({timestamp})*",
             "",
             f"Total agencies: {metrics['total_agencies']}",
             f"Total agents: {metrics['total_agents']}",
