@@ -16,9 +16,16 @@ log = logging.getLogger(__name__)
 
 
 def initiate_download():
-    resp = requests.get(INITIATE_URL, timeout=30)
-    resp.raise_for_status()
-    return resp.json()
+    for attempt in range(1, 6):
+        resp = requests.get(INITIATE_URL, timeout=30)
+        if resp.status_code == 429:
+            wait = 60 * attempt
+            log.warning("Initiate rate limited (429), waiting %ds (attempt %d/5)...", wait, attempt)
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        return resp.json()
+    raise RuntimeError("initiate-download still rate limited after 5 retries")
 
 
 def poll_download():
