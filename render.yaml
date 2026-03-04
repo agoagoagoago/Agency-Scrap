@@ -2,11 +2,32 @@ services:
   - type: web
     name: cea-dashboard
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: FORMSPREE_ENDPOINT
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+  - type: cron
+    name: cea-scraper
+    runtime: python
+    plan: starter
+    schedule: "0 1,13 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scraper.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: FORMSPREE_ENDPOINT
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
         sync: false

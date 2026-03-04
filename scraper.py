@@ -7,6 +7,7 @@ import requests
 
 from config import (
     INITIATE_URL, POLL_URL, POLL_INTERVAL, POLL_MAX_ATTEMPTS, FORMSPREE_ENDPOINT,
+    TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
 )
 import db
 
@@ -136,6 +137,58 @@ def send_email(metrics):
         log.warning("Email send failed: %s %s", resp.status_code, resp.text)
 
 
+def send_telegram(metrics):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        log.info("Telegram not configured, skipping")
+        return
+    try:
+        lines = [
+            "*CEA Scrape Report*",
+            "",
+            f"Total agencies: {metrics['total_agencies']}",
+            f"Total agents: {metrics['total_agents']}",
+            f"New agencies: {metrics['new_agencies']}",
+            f"Removed agencies: {metrics['removed_agencies']}",
+            f"New agents: {metrics['new_agents']}",
+            f"Removed agents: {metrics['removed_agents']}",
+        ]
+        if metrics["new_agency_names"]:
+            lines.append("\n*Newly added agencies:*")
+            for name in metrics["new_agency_names"]:
+                lines.append(f"  • {name}")
+        if metrics["removed_agency_names"]:
+            lines.append("\n*Removed agencies:*")
+            for name in metrics["removed_agency_names"]:
+                lines.append(f"  • {name}")
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        resp = requests.post(url, json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": "\n".join(lines),
+            "parse_mode": "Markdown",
+        }, timeout=30)
+        if resp.ok:
+            log.info("Telegram message sent")
+        else:
+            log.warning("Telegram send failed: %s %s", resp.status_code, resp.text)
+    except Exception:
+        log.exception("Telegram notification failed")
+
+
+def send_telegram_error(error_msg):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        requests.post(url, json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": f"*CEA Scraper FAILED*\n\n{error_msg}",
+            "parse_mode": "Markdown",
+        }, timeout=30)
+    except Exception:
+        log.exception("Telegram error notification failed")
+
+
 def run():
     log.info("=== CEA Scraper starting ===")
     db.init_db()
@@ -182,10 +235,12 @@ def run():
         db.replace_master(master_tuples)
 
         send_email(metrics)
+        send_telegram(metrics)
         log.info("=== Scrape complete ===")
 
     except Exception as e:
         log.exception("Scraper failed")
+        send_telegram_error(str(e))
         try:
             db.insert_run(0, 0, 0, 0, 0, 0, [], [], status="error", error_message=str(e))
         except Exception:
