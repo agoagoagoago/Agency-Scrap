@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 
 def initiate_download():
+    """Initiate download and return CSV URL if available, else None."""
     for attempt in range(1, 6):
         resp = requests.get(INITIATE_URL, timeout=30)
         if resp.status_code == 429:
@@ -24,7 +25,12 @@ def initiate_download():
             time.sleep(wait)
             continue
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        url = data.get("data", {}).get("url")
+        if url:
+            log.info("Got download URL directly from initiate response")
+            return url
+        return None
     raise RuntimeError("initiate-download still rate limited after 5 retries")
 
 
@@ -213,10 +219,11 @@ def run():
 
     try:
         log.info("Initiating download...")
-        initiate_download()
+        csv_url = initiate_download()
 
-        log.info("Polling for download URL...")
-        csv_url = poll_download()
+        if not csv_url:
+            log.info("Polling for download URL...")
+            csv_url = poll_download()
 
         log.info("Downloading CSV...")
         new_rows = download_csv(csv_url)
