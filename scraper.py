@@ -167,7 +167,7 @@ def send_telegram(metrics):
         return
     try:
         lines = [
-            "*CEA Scrape Report*",
+            "*CEA - Latest Update*",
             "",
             f"Total agencies: {metrics['total_agencies']}",
             f"Total agents: {metrics['total_agents']}",
