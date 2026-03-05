@@ -131,6 +131,45 @@ def get_latest_run():
             return cur.fetchone()
 
 
+def rollback_last_run():
+    """Reverse the last scrape run: undo agent changes and delete run records."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM scrape_runs ORDER BY id DESC LIMIT 1")
+            row = cur.fetchone()
+            if not row:
+                return None
+            run_id = row[0]
+
+            # Reverse 'added' agents: delete them from master
+            cur.execute("""
+                DELETE FROM agents_master
+                WHERE registration_no IN (
+                    SELECT registration_no FROM scrape_agent_changes
+                    WHERE scrape_run_id = %s AND change_type = 'added'
+                )
+            """, (run_id,))
+            deleted = cur.rowcount
+
+            # Reverse 'removed' agents: re-insert them into master
+            cur.execute("""
+                INSERT INTO agents_master (registration_no, salesperson_name,
+                    registration_start_date, registration_end_date,
+                    estate_agent_name, estate_agent_license_no)
+                SELECT registration_no, salesperson_name, '', '', estate_agent_name, ''
+                FROM scrape_agent_changes
+                WHERE scrape_run_id = %s AND change_type = 'removed'
+                ON CONFLICT (registration_no) DO NOTHING
+            """, (run_id,))
+            reinserted = cur.rowcount
+
+            # Delete run records
+            cur.execute("DELETE FROM scrape_agent_changes WHERE scrape_run_id = %s", (run_id,))
+            cur.execute("DELETE FROM scrape_runs WHERE id = %s", (run_id,))
+
+    return {"run_id": run_id, "deleted": deleted, "reinserted": reinserted}
+
+
 def get_run_history(limit=30):
     with get_conn() as conn:
         with conn.cursor() as cur:

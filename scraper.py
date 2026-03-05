@@ -322,5 +322,22 @@ def run():
         raise
 
 
+def rollback():
+    log.info("=== Rolling back last scrape run ===")
+    db.init_db()
+    result = db.rollback_last_run()
+    if result is None:
+        log.info("No scrape runs found to roll back")
+    else:
+        log.info(
+            "Rolled back run %d: %d added agents deleted, %d removed agents re-inserted",
+            result["run_id"], result["deleted"], result["reinserted"],
+        )
+
+
 if __name__ == "__main__":
-    run()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "rollback":
+        rollback()
+    else:
+        run()
