@@ -98,6 +98,14 @@ def compare(new_rows, old_master):
     added_agency_names = new_agencies - old_agencies
     removed_agency_names = old_agencies - new_agencies
 
+    # Build agency name -> license_no mappings
+    new_agency_license = {}
+    for r in new_rows:
+        new_agency_license.setdefault(r["estate_agent_name"], r["estate_agent_license_no"])
+    old_agency_license = {}
+    for v in old_master.values():
+        old_agency_license.setdefault(v["estate_agent_name"], v.get("estate_agent_license_no", ""))
+
     changes = []
     for reg in added_agent_ids:
         r = new_lookup[reg]
@@ -132,6 +140,8 @@ def compare(new_rows, old_master):
         "removed_agents": len(removed_agent_ids),
         "new_agency_names": sorted(added_agency_names),
         "removed_agency_names": sorted(removed_agency_names),
+        "new_agency_details": sorted([(n, new_agency_license.get(n, "")) for n in added_agency_names]),
+        "removed_agency_details": sorted([(n, old_agency_license.get(n, "")) for n in removed_agency_names]),
         "changes": changes,
         "top_agencies": top_agencies,
     }
@@ -150,14 +160,24 @@ def send_email(metrics):
         f"New agents: {metrics['new_agents']}",
         f"Removed agents: {metrics['removed_agents']}",
     ]
-    if metrics["new_agency_names"]:
+    if metrics.get("new_agency_details"):
         body_lines.append("\nNewly added agencies:")
-        for name in metrics["new_agency_names"]:
-            body_lines.append(f"  - {name}")
-    if metrics["removed_agency_names"]:
+        for name, license_no in metrics["new_agency_details"]:
+            body_lines.append(f"  - {name} ({license_no})")
+    if metrics.get("removed_agency_details"):
         body_lines.append("\nRemoved agencies:")
-        for name in metrics["removed_agency_names"]:
-            body_lines.append(f"  - {name}")
+        for name, license_no in metrics["removed_agency_details"]:
+            body_lines.append(f"  - {name} ({license_no})")
+    added_agents = [c for c in metrics.get("changes", []) if c["change_type"] == "added"]
+    removed_agents = [c for c in metrics.get("changes", []) if c["change_type"] == "removed"]
+    if added_agents:
+        body_lines.append("\nNewly added agents:")
+        for a in sorted(added_agents, key=lambda x: x["salesperson_name"]):
+            body_lines.append(f"  - {a['salesperson_name']} ({a['registration_no']}) | {a['estate_agent_name']}")
+    if removed_agents:
+        body_lines.append("\nRemoved agents:")
+        for a in sorted(removed_agents, key=lambda x: x["salesperson_name"]):
+            body_lines.append(f"  - {a['salesperson_name']} ({a['registration_no']}) | {a['estate_agent_name']}")
     if metrics.get("top_agencies"):
         body_lines.append("\nTop 20 Agencies by Agent Count:")
         for i, (name, count) in enumerate(metrics["top_agencies"], 1):
@@ -191,14 +211,24 @@ def send_telegram(metrics):
             f"New agents: {metrics['new_agents']}",
             f"Removed agents: {metrics['removed_agents']}",
         ]
-        if metrics["new_agency_names"]:
+        if metrics.get("new_agency_details"):
             lines.append("\n*Newly added agencies:*")
-            for name in metrics["new_agency_names"]:
-                lines.append(f"  • {name}")
-        if metrics["removed_agency_names"]:
+            for name, license_no in metrics["new_agency_details"]:
+                lines.append(f"  • {name} ({license_no})")
+        if metrics.get("removed_agency_details"):
             lines.append("\n*Removed agencies:*")
-            for name in metrics["removed_agency_names"]:
-                lines.append(f"  • {name}")
+            for name, license_no in metrics["removed_agency_details"]:
+                lines.append(f"  • {name} ({license_no})")
+        added_agents = [c for c in metrics.get("changes", []) if c["change_type"] == "added"]
+        removed_agents = [c for c in metrics.get("changes", []) if c["change_type"] == "removed"]
+        if added_agents:
+            lines.append("\n*Newly added agents:*")
+            for a in sorted(added_agents, key=lambda x: x["salesperson_name"]):
+                lines.append(f"  • {a['salesperson_name']} ({a['registration_no']}) | {a['estate_agent_name']}")
+        if removed_agents:
+            lines.append("\n*Removed agents:*")
+            for a in sorted(removed_agents, key=lambda x: x["salesperson_name"]):
+                lines.append(f"  • {a['salesperson_name']} ({a['registration_no']}) | {a['estate_agent_name']}")
         if metrics.get("top_agencies"):
             lines.append("\n*Top 20 Agencies by Agent Count:*")
             for i, (name, count) in enumerate(metrics["top_agencies"], 1):

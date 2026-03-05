@@ -62,11 +62,11 @@ def load_master_dict():
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT registration_no, salesperson_name, estate_agent_name
+                SELECT registration_no, salesperson_name, estate_agent_name, estate_agent_license_no
                 FROM agents_master
             """)
             return {
-                row[0]: {"salesperson_name": row[1], "estate_agent_name": row[2]}
+                row[0]: {"salesperson_name": row[1], "estate_agent_name": row[2], "estate_agent_license_no": row[3]}
                 for row in cur.fetchall()
             }
 
