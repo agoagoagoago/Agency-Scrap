@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import random
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -18,11 +19,11 @@ log = logging.getLogger(__name__)
 
 def initiate_download():
     """Initiate download and return CSV URL if available, else None."""
-    for attempt in range(1, 6):
+    for attempt in range(1, 10):
         resp = requests.get(INITIATE_URL, timeout=30)
         if resp.status_code == 429:
-            wait = 60 * attempt
-            log.warning("Initiate rate limited (429), waiting %ds (attempt %d/5)...", wait, attempt)
+            wait = min(60 * attempt, 300) + random.randint(0, 30)
+            log.warning("Initiate rate limited (429), waiting %ds (attempt %d/9)...", wait, attempt)
             time.sleep(wait)
             continue
         resp.raise_for_status()
@@ -32,7 +33,7 @@ def initiate_download():
             log.info("Got download URL directly from initiate response")
             return url
         return None
-    raise RuntimeError("initiate-download still rate limited after 5 retries")
+    raise RuntimeError("initiate-download still rate limited after 9 retries")
 
 
 def poll_download():
