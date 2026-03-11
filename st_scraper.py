@@ -95,56 +95,43 @@ def _shorten_type(classification):
 
 
 def format_telegram_message(listings):
-    """Build HTML-formatted table messages for Telegram."""
+    """Build HTML-formatted list messages for Telegram."""
     now = datetime.now(SGT)
     date_str = now.strftime("%d %b %Y").lstrip("0")
     header = (
         f"<b>ST Classifieds - Commercial/Industrial</b>\n"
-        f"<i>{date_str} — {len(listings)} listings</i>\n\n"
+        f"<i>{date_str} — {len(listings)} listings</i>\n"
     )
 
     if not listings:
-        return [header + "No listings found."]
+        return [header + "\nNo listings found."]
 
-    # Build table rows
-    table_header = " # | Type       | Phone        | Description\n"
-    table_sep =    "---+------------+--------------+---------------------------\n"
-    table_rows = []
+    # Build listing blocks
+    blocks = []
     for i, lst in enumerate(listings, 1):
-        short_type = _shorten_type(lst["classification"]).ljust(10)
-        phone = (lst["phone"] or "—").ljust(12)
+        short_type = _shorten_type(lst["classification"])
+        phone = lst["phone"] or "—"
         desc = html.escape(lst["description"])
-        if len(desc) > 27:
-            desc = desc[:24] + "..."
-        row = f"{i:>2} | {short_type} | {phone} | {desc}"
-        table_rows.append(row)
-
-    table_content = table_header + table_sep + "\n".join(table_rows)
-    full_message = header + "<pre>" + table_content + "</pre>"
+        block = f"\n<b>{i}. {short_type}</b> | {phone}\n{desc}"
+        blocks.append(block)
 
     # Split into multiple messages if needed (Telegram limit 4096)
-    if len(full_message) <= 3900:
-        return [full_message]
-
-    # Split by rows
     messages = []
-    current_rows = []
-    current_len = len(header) + len("<pre>") + len(table_header) + len(table_sep) + len("</pre>")
-    for row in table_rows:
-        row_len = len(row) + 1  # +1 for newline
-        if current_len + row_len > 3900 and current_rows:
-            content = table_header + table_sep + "\n".join(current_rows)
-            msg = (header if not messages else "") + "<pre>" + content + "</pre>"
-            messages.append(msg)
-            current_rows = []
-            current_len = len("<pre>") + len(table_header) + len(table_sep) + len("</pre>")
-        current_rows.append(row)
-        current_len += row_len
+    current_blocks = []
+    current_len = len(header)
+    for block in blocks:
+        block_len = len(block)
+        if current_len + block_len > 3900 and current_blocks:
+            messages.append(header + "".join(current_blocks))
+            current_blocks = []
+            current_len = len(header)
+        current_blocks.append(block)
+        current_len += block_len
 
-    if current_rows:
-        content = table_header + table_sep + "\n".join(current_rows)
-        msg = (header if not messages else "") + "<pre>" + content + "</pre>"
-        messages.append(msg)
+    if current_blocks:
+        messages.append(
+            (header if not messages else "") + "".join(current_blocks)
+        )
 
     return messages
 
