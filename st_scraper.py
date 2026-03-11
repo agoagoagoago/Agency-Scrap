@@ -67,12 +67,17 @@ def parse_listings(page_html):
                 phone = match.group(1)
                 ad_id = match.group(2)
 
+        # Image URL (for image-only listings)
+        img_tag = row.find("img", class_="imgCenterAlign")
+        image_url = img_tag["src"] if img_tag and img_tag.get("src") else ""
+
         if description or classification:
             listings.append({
                 "classification": classification,
                 "description": description,
                 "phone": phone,
                 "ad_id": ad_id,
+                "image_url": image_url,
             })
 
     log.info("Parsed %d listings", len(listings))
@@ -112,6 +117,8 @@ def format_telegram_message(listings):
         short_type = _shorten_type(lst["classification"])
         phone = lst["phone"] or "—"
         desc = html.escape(lst["description"])
+        if "Click on image" in lst["description"] and lst.get("image_url"):
+            desc = f'<a href="{lst["image_url"]}">View listing image</a>'
         block = f"\n<b>{i}. {short_type}</b> | {phone}\n{desc}\n"
         blocks.append(block)
 
