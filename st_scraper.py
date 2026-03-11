@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from config import ST_CLASSIFIEDS_URL, TELEGRAM_BOT_TOKEN, ST_TELEGRAM_CHAT_ID
+from config import ST_CLASSIFIEDS_URL, TELEGRAM_BOT_TOKEN, ST_TELEGRAM_CHAT_ID, DATABASE_URL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -99,7 +99,40 @@ def _shorten_type(classification):
     return classification[:10]
 
 
-def format_telegram_message(listings):
+def _format_date(d):
+    """Format date as d/m/yy without leading zeros, cross-platform."""
+    return f"{d.day}/{d.month}/{d.strftime('%y')}"
+
+
+def get_listing_history(listings):
+    """Fetch sighting history for listings from DB."""
+    if not DATABASE_URL:
+        return {}
+    try:
+        from db import st_get_sighting_history
+        ad_ids = [lst["ad_id"] for lst in listings if lst.get("ad_id")]
+        if not ad_ids:
+            return {}
+        return st_get_sighting_history(ad_ids)
+    except Exception:
+        log.warning("Failed to fetch listing history", exc_info=True)
+        return {}
+
+
+def record_sightings(listings):
+    """Record today's sightings in the DB."""
+    if not DATABASE_URL:
+        return
+    try:
+        from db import st_record_sightings
+        ad_ids = [lst["ad_id"] for lst in listings if lst.get("ad_id")]
+        today = datetime.now(SGT).date()
+        st_record_sightings(ad_ids, today)
+    except Exception:
+        log.warning("Failed to record sightings", exc_info=True)
+
+
+def format_telegram_message(listings, history=None):
     """Build HTML-formatted list messages for Telegram."""
     now = datetime.now(SGT)
     date_str = now.strftime("%d %b %Y").lstrip("0")
@@ -122,6 +155,14 @@ def format_telegram_message(listings):
         is_owner = "owner" in lst["description"].lower()
         prefix = "🔴 " if is_owner else ""
         block = f"\n<b>{prefix}{i}. {short_type}</b> | {phone}\n{desc}\n"
+        if history and lst.get("ad_id") and lst["ad_id"] in history:
+            dates = history[lst["ad_id"]]
+            today = datetime.now(SGT).date()
+            all_dates = sorted(set(dates + [today]))
+            date_strs = [_format_date(d) for d in all_dates]
+            count = len(date_strs)
+            if count > 1:
+                block += f"<i>[Same listing advertised {count} times: {', '.join(date_strs)}]</i>\n"
         blocks.append(block)
 
     # Split into multiple messages if needed (Telegram limit 4096)
@@ -183,8 +224,10 @@ def run():
     try:
         page_html = fetch_page()
         listings = parse_listings(page_html)
-        messages = format_telegram_message(listings)
+        history = get_listing_history(listings)
+        messages = format_telegram_message(listings, history)
         send_telegram(messages)
+        record_sightings(listings)
         log.info("=== ST Classifieds Scrape complete ===")
     except Exception as e:
         log.exception("ST Classifieds scraper failed")

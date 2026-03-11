@@ -36,6 +36,13 @@ def init_db():
                     error_message       TEXT
                 );
 
+                CREATE TABLE IF NOT EXISTS st_listing_sightings (
+                    id       SERIAL PRIMARY KEY,
+                    ad_id    TEXT NOT NULL,
+                    seen_on  DATE NOT NULL,
+                    UNIQUE(ad_id, seen_on)
+                );
+
                 CREATE TABLE IF NOT EXISTS scrape_agent_changes (
                     id              SERIAL PRIMARY KEY,
                     scrape_run_id   INTEGER REFERENCES scrape_runs(id),
@@ -168,6 +175,36 @@ def rollback_last_run():
             cur.execute("DELETE FROM scrape_runs WHERE id = %s", (run_id,))
 
     return {"run_id": run_id, "deleted": deleted, "reinserted": reinserted}
+
+
+def st_get_sighting_history(ad_ids):
+    """Return {ad_id: [date1, date2, ...]} sorted chronologically."""
+    if not ad_ids:
+        return {}
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT ad_id, seen_on FROM st_listing_sightings WHERE ad_id = ANY(%s) ORDER BY seen_on",
+                (list(ad_ids),)
+            )
+            result = {}
+            for ad_id, seen_on in cur.fetchall():
+                result.setdefault(ad_id, []).append(seen_on)
+            return result
+
+
+def st_record_sightings(ad_ids, seen_date):
+    """Insert sighting rows, ignoring duplicates."""
+    ad_ids = [a for a in ad_ids if a]
+    if not ad_ids:
+        return
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            execute_values(
+                cur,
+                "INSERT INTO st_listing_sightings (ad_id, seen_on) VALUES %s ON CONFLICT (ad_id, seen_on) DO NOTHING",
+                [(ad_id, seen_date) for ad_id in ad_ids],
+            )
 
 
 def get_run_history(limit=30):
