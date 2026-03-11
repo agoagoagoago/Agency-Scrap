@@ -119,7 +119,9 @@ def format_telegram_message(listings):
         desc = html.escape(lst["description"])
         if "Click on image" in lst["description"] and lst.get("image_url"):
             desc = f'<a href="{lst["image_url"]}">View listing image</a>'
-        block = f"\n<b>{i}. {short_type}</b> | {phone}\n{desc}\n"
+        is_owner = "owner" in lst["description"].lower()
+        prefix = "🔴 " if is_owner else ""
+        block = f"\n<b>{prefix}{i}. {short_type}</b> | {phone}\n{desc}\n"
         blocks.append(block)
 
     # Split into multiple messages if needed (Telegram limit 4096)
