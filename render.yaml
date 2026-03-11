@@ -40,6 +40,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python st_scraper.py
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID

@@ -12,6 +12,7 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "")
 
 ST_CLASSIFIEDS_URL = "https://www.stclassifieds.sg/section/sub/list/properties/759"
+ST_HOUSES_URL = "https://www.stclassifieds.sg/section/sub/list/properties/763"
 ST_TELEGRAM_CHAT_ID = os.environ.get("ST_TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)
 
 CEA_DATASET_ID = "d_07c63be0f37e6e59c07a4ddc2fd87fcb"

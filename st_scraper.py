@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from config import ST_CLASSIFIEDS_URL, TELEGRAM_BOT_TOKEN, ST_TELEGRAM_CHAT_ID, DATABASE_URL
+from config import ST_CLASSIFIEDS_URL, ST_HOUSES_URL, TELEGRAM_BOT_TOKEN, ST_TELEGRAM_CHAT_ID, DATABASE_URL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -15,15 +15,15 @@ log = logging.getLogger(__name__)
 SGT = timezone(timedelta(hours=8))
 
 
-def fetch_page():
-    """Fetch the ST Classifieds listing page with retries."""
+def fetch_page(url):
+    """Fetch a ST Classifieds listing page with retries."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     for attempt in range(1, 4):
         try:
-            resp = requests.get(ST_CLASSIFIEDS_URL, headers=headers, timeout=30)
+            resp = requests.get(url, headers=headers, timeout=30)
             resp.raise_for_status()
             log.info("Page fetched successfully (%d bytes)", len(resp.text))
             return resp.text
@@ -31,7 +31,7 @@ def fetch_page():
             log.warning("Fetch attempt %d/3 failed: %s", attempt, e)
             if attempt < 3:
                 time.sleep(5 * attempt)
-    raise RuntimeError("Failed to fetch ST Classifieds page after 3 attempts")
+    raise RuntimeError(f"Failed to fetch {url} after 3 attempts")
 
 
 def parse_listings(page_html):
@@ -95,6 +95,18 @@ def _shorten_type(classification):
         return "Shop"
     if "land" in cl:
         return "Land"
+    if "detached" in cl:
+        return "Detached"
+    if "semi" in cl:
+        return "Semi-D"
+    if "terrace" in cl:
+        return "Terrace"
+    if "bungalow" in cl:
+        return "Bungalow"
+    if "corner" in cl:
+        return "Corner"
+    if "cluster" in cl:
+        return "Cluster"
     # Fallback: first 10 chars
     return classification[:10]
 
@@ -132,38 +144,46 @@ def record_sightings(listings):
         log.warning("Failed to record sightings", exc_info=True)
 
 
-def format_telegram_message(listings, history=None):
-    """Build HTML-formatted list messages for Telegram."""
+def format_telegram_message(sections, history=None):
+    """Build HTML-formatted list messages for Telegram.
+
+    sections: list of (title, listings) tuples
+    """
     now = datetime.now(SGT)
     date_str = now.strftime("%d %b %Y").lstrip("0")
+    total = sum(len(listings) for _, listings in sections)
     header = (
-        f"<b>ST Classifieds - Commercial/Industrial</b>\n"
-        f"<i>{date_str} — {len(listings)} listings</i>\n"
+        f"<b>ST Classifieds</b>\n"
+        f"<i>{date_str} — {total} listings</i>\n"
     )
 
-    if not listings:
+    if total == 0:
         return [header + "\nNo listings found."]
 
-    # Build listing blocks
+    # Build listing blocks with section headers
     blocks = []
-    for i, lst in enumerate(listings, 1):
-        short_type = _shorten_type(lst["classification"])
-        phone = lst["phone"] or "—"
-        desc = html.escape(lst["description"])
-        if "Click on image" in lst["description"] and lst.get("image_url"):
-            desc = f'<a href="{lst["image_url"]}">View listing image</a>'
-        is_owner = "owner" in lst["description"].lower()
-        prefix = "🔴 " if is_owner else ""
-        block = f"\n<b>{prefix}{i}. {short_type}</b> | {phone}\n{desc}\n"
-        if history and lst.get("ad_id") and lst["ad_id"] in history:
-            dates = history[lst["ad_id"]]
-            today = datetime.now(SGT).date()
-            all_dates = sorted(set(dates + [today]))
-            date_strs = [_format_date(d) for d in all_dates]
-            count = len(date_strs)
-            if count > 1:
-                block += f"<i>[Same listing advertised {count} times: {', '.join(date_strs)}]</i>\n"
-        blocks.append(block)
+    for title, listings in sections:
+        if not listings:
+            continue
+        blocks.append(f"\n<b>— {title} ({len(listings)}) —</b>\n")
+        for i, lst in enumerate(listings, 1):
+            short_type = _shorten_type(lst["classification"])
+            phone = lst["phone"] or "—"
+            desc = html.escape(lst["description"])
+            if "Click on image" in lst["description"] and lst.get("image_url"):
+                desc = f'<a href="{lst["image_url"]}">View listing image</a>'
+            is_owner = "owner" in lst["description"].lower()
+            prefix = "🔴 " if is_owner else ""
+            block = f"\n<b>{prefix}{i}. {short_type}</b> | {phone}\n{desc}\n"
+            if history and lst.get("ad_id") and lst["ad_id"] in history:
+                dates = history[lst["ad_id"]]
+                today = datetime.now(SGT).date()
+                all_dates = sorted(set(dates + [today]))
+                date_strs = [_format_date(d) for d in all_dates]
+                count = len(date_strs)
+                if count > 1:
+                    block += f"<i>[Same listing advertised {count} times: {', '.join(date_strs)}]</i>\n"
+            blocks.append(block)
 
     # Split into multiple messages if needed (Telegram limit 4096)
     messages = []
@@ -222,12 +242,22 @@ def send_telegram_error(error_msg):
 def run():
     log.info("=== ST Classifieds Scraper starting ===")
     try:
-        page_html = fetch_page()
-        listings = parse_listings(page_html)
-        history = get_listing_history(listings)
-        messages = format_telegram_message(listings, history)
+        commercial_html = fetch_page(ST_CLASSIFIEDS_URL)
+        commercial = parse_listings(commercial_html)
+
+        houses_html = fetch_page(ST_HOUSES_URL)
+        houses = parse_listings(houses_html)
+
+        all_listings = commercial + houses
+        history = get_listing_history(all_listings)
+
+        sections = [
+            ("Commercial/Industrial", commercial),
+            ("Houses for Sale", houses),
+        ]
+        messages = format_telegram_message(sections, history)
         send_telegram(messages)
-        record_sightings(listings)
+        record_sightings(all_listings)
         log.info("=== ST Classifieds Scrape complete ===")
     except Exception as e:
         log.exception("ST Classifieds scraper failed")
