@@ -31,3 +31,18 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+
+  - type: cron
+    name: st-classifieds-scraper
+    runtime: python
+    plan: starter
+    schedule: "0 0 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python st_scraper.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: ST_TELEGRAM_CHAT_ID
+        sync: false
