@@ -112,7 +112,7 @@ def format_telegram_message(listings):
         short_type = _shorten_type(lst["classification"])
         phone = lst["phone"] or "—"
         desc = html.escape(lst["description"])
-        block = f"\n<b>{i}. {short_type}</b> | {phone}\n{desc}"
+        block = f"\n<b>{i}. {short_type}</b> | {phone}\n{desc}\n"
         blocks.append(block)
 
     # Split into multiple messages if needed (Telegram limit 4096)
