@@ -235,6 +235,22 @@ def send_telegram(metrics):
             for i, (name, count) in enumerate(metrics["top_agencies"], 1):
                 lines.append(f"  {i}. {name} ({count:,})")
 
+        # Agency scorecards: top 5 gainers and losers (30 days)
+        try:
+            scorecards = db.get_agency_scorecards(30)
+            gainers = [s for s in scorecards if s["net_change"] > 0][:5]
+            losers = [s for s in scorecards if s["net_change"] < 0][-5:]
+            if gainers:
+                lines.append("\n*Top 5 Agency Gainers (30d):*")
+                for i, s in enumerate(gainers, 1):
+                    lines.append(f"  {i}. {s['agency']} (+{s['net_change']}, now {s['current_count']:,})")
+            if losers:
+                lines.append("\n*Top 5 Agency Losers (30d):*")
+                for i, s in enumerate(losers, 1):
+                    lines.append(f"  {i}. {s['agency']} ({s['net_change']}, now {s['current_count']:,})")
+        except Exception:
+            log.exception("Failed to fetch agency scorecards for Telegram")
+
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         resp = requests.post(url, json={
             "chat_id": TELEGRAM_CHAT_ID,

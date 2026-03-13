@@ -51,6 +51,9 @@ def init_db():
                     estate_agent_name TEXT,
                     change_type     TEXT CHECK (change_type IN ('added', 'removed'))
                 );
+
+                CREATE INDEX IF NOT EXISTS idx_agent_changes_run_id
+                    ON scrape_agent_changes(scrape_run_id);
             """)
 
 
@@ -205,6 +208,47 @@ def st_record_sightings(ad_ids, seen_date):
                 "INSERT INTO st_listing_sightings (ad_id, seen_on) VALUES %s ON CONFLICT (ad_id, seen_on) DO NOTHING",
                 [(ad_id, seen_date) for ad_id in ad_ids],
             )
+
+
+def get_agency_scorecards(days=30):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                WITH changes AS (
+                    SELECT c.estate_agent_name, c.change_type, COUNT(*) AS cnt
+                    FROM scrape_agent_changes c
+                    JOIN scrape_runs r ON r.id = c.scrape_run_id
+                    WHERE r.run_at >= NOW() - (%s * INTERVAL '1 day')
+                      AND r.status = 'success'
+                    GROUP BY c.estate_agent_name, c.change_type
+                ),
+                pivoted AS (
+                    SELECT estate_agent_name,
+                        COALESCE(SUM(cnt) FILTER (WHERE change_type = 'added'), 0) AS added,
+                        COALESCE(SUM(cnt) FILTER (WHERE change_type = 'removed'), 0) AS removed
+                    FROM changes GROUP BY estate_agent_name
+                ),
+                headcounts AS (
+                    SELECT estate_agent_name, COUNT(*) AS current_count
+                    FROM agents_master GROUP BY estate_agent_name
+                )
+                SELECT p.estate_agent_name, p.added, p.removed,
+                       (p.added - p.removed) AS net_change,
+                       COALESCE(h.current_count, 0) AS current_count
+                FROM pivoted p
+                LEFT JOIN headcounts h ON h.estate_agent_name = p.estate_agent_name
+                ORDER BY net_change DESC
+            """, (days,))
+            return [
+                {
+                    "agency": row[0],
+                    "added": row[1],
+                    "removed": row[2],
+                    "net_change": row[3],
+                    "current_count": row[4],
+                }
+                for row in cur.fetchall()
+            ]
 
 
 def get_run_history(limit=30):

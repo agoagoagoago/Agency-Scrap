@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agency Scorecards - CEA Registry</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .net-positive { color: green; font-weight: bold; }
+        .net-negative { color: red; font-weight: bold; }
+        .tab-links a { margin-right: 1rem; }
+        .tab-links a.active { font-weight: bold; text-decoration: underline; }
+    </style>
+</head>
+<body>
+<main class="container">
+    <nav>
+        <ul><li><a href="/">&larr; Dashboard</a></li></ul>
+        <ul><li><strong>Agency Scorecards</strong></li></ul>
+    </nav>
+
+    <h1>Agency Scorecards</h1>
+    <p>Net agent gains and losses per agency over the selected time window.</p>
+
+    <div class="tab-links">
+        <a href="/scorecards?days=30{% if show_all %}&all=1{% endif %}" {% if days == 30 %}class="active"{% endif %}>30 days</a>
+        <a href="/scorecards?days=60{% if show_all %}&all=1{% endif %}" {% if days == 60 %}class="active"{% endif %}>60 days</a>
+        <a href="/scorecards?days=90{% if show_all %}&all=1{% endif %}" {% if days == 90 %}class="active"{% endif %}>90 days</a>
+    </div>
+
+    <h2>Top Gainers</h2>
+    {% if gainers %}
+    <figure>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Agency Name</th>
+                <th>Added</th>
+                <th>Removed</th>
+                <th>Net Change</th>
+                <th>Current Headcount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in gainers %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ s.agency }}</td>
+                <td>{{ s.added }}</td>
+                <td>{{ s.removed }}</td>
+                <td class="net-positive">+{{ s.net_change }}</td>
+                <td>{{ "{:,}".format(s.current_count) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </figure>
+    {% else %}
+    <p>No agencies with net gains in the last {{ days }} days.</p>
+    {% endif %}
+
+    <h2>Top Losers</h2>
+    {% if losers %}
+    <figure>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Agency Name</th>
+                <th>Added</th>
+                <th>Removed</th>
+                <th>Net Change</th>
+                <th>Current Headcount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in losers %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ s.agency }}</td>
+                <td>{{ s.added }}</td>
+                <td>{{ s.removed }}</td>
+                <td class="net-negative">{{ s.net_change }}</td>
+                <td>{{ "{:,}".format(s.current_count) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </figure>
+    {% else %}
+    <p>No agencies with net losses in the last {{ days }} days.</p>
+    {% endif %}
+
+    {% if truncated %}
+    <p><a href="/scorecards?days={{ days }}&all=1">Show all agencies</a></p>
+    {% endif %}
+    {% if show_all %}
+    <p><a href="/scorecards?days={{ days }}">Show top 25 only</a></p>
+    {% endif %}
+</main>
+</body>
+</html>

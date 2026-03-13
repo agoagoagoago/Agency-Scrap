@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import db
 
 app = Flask(__name__)
@@ -40,6 +40,31 @@ def dashboard():
         })
 
     return render_template("dashboard.html", metrics=metrics, runs=runs)
+
+
+@app.route("/scorecards")
+def scorecards():
+    db.init_db()
+    days = request.args.get("days", 30, type=int)
+    if days not in (30, 60, 90):
+        days = 30
+    show_all = request.args.get("all", 0, type=int) == 1
+
+    all_scorecards = db.get_agency_scorecards(days)
+
+    if show_all:
+        gainers = [s for s in all_scorecards if s["net_change"] > 0]
+        losers = [s for s in all_scorecards if s["net_change"] < 0]
+        truncated = False
+    else:
+        gainers = [s for s in all_scorecards if s["net_change"] > 0][:25]
+        losers = [s for s in all_scorecards if s["net_change"] < 0][-25:]
+        total_gainers = sum(1 for s in all_scorecards if s["net_change"] > 0)
+        total_losers = sum(1 for s in all_scorecards if s["net_change"] < 0)
+        truncated = total_gainers > 25 or total_losers > 25
+
+    return render_template("scorecards.html", gainers=gainers, losers=losers,
+                           days=days, show_all=show_all, truncated=truncated)
 
 
 @app.route("/health")
