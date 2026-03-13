@@ -12,8 +12,8 @@ This app scrapes the CEA public dataset of registered salespersons from data.gov
 - **db.py** - PostgreSQL database layer using psycopg2. Tables: `agents_master` (current registry), `scrape_runs` (run history with metrics), `scrape_agent_changes` (per-agent add/remove records per run).
 - **app.py** - Flask web dashboard showing latest run metrics and 30-day run history.
 - **templates/dashboard.html** - Dashboard UI template.
-- **st_scraper.py** - ST Classifieds Commercial/Industrial property scraper. Fetches listings from stclassifieds.sg, parses with BeautifulSoup, sends formatted table to Telegram. No database needed.
-- **config.py** - Environment variable config (DATABASE_URL, Telegram, Formspree, Stripe, CEA API URLs, ST Classifieds URL).
+- **st_scraper.py** - ST Classifieds property scraper. Fetches Commercial/Industrial and Houses for Sale listings from stclassifieds.sg, parses with BeautifulSoup, sends formatted list to Telegram with section headers. Features: owner highlighting (red circle emoji), image links for image-only listings, repeat sighting history tracking via DB.
+- **config.py** - Environment variable config (DATABASE_URL, Telegram, Formspree, Stripe, CEA API URLs, ST Classifieds URLs).
 - **render.yaml** - Render deployment config: web service (gunicorn) + cron job (runs at 1am and 1pm SGT).
 
 ## Data Flow

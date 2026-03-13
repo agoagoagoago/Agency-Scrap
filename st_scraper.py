@@ -174,7 +174,8 @@ def format_telegram_message(sections, history=None):
                 desc = f'<a href="{lst["image_url"]}">View listing image</a>'
             is_owner = "owner" in lst["description"].lower()
             prefix = "🔴 " if is_owner else ""
-            block = f"\n<b>{prefix}{i}. {short_type}</b> | {phone}\n{desc}\n"
+            wa_link = f' | <a href="https://wa.me/65{phone}">WhatsApp</a>' if phone and phone != "—" else ""
+            block = f"\n<b>{prefix}{i}. {short_type}</b> | {phone}{wa_link}\n{desc}\n"
             if history and lst.get("ad_id") and lst["ad_id"] in history:
                 dates = history[lst["ad_id"]]
                 today = datetime.now(SGT).date()
