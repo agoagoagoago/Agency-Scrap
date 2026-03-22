@@ -14,6 +14,7 @@ This app scrapes the CEA public dataset of registered salespersons from data.gov
 - **templates/dashboard.html** - Dashboard UI template with nav link to scorecards.
 - **templates/scorecards.html** - Agency scorecards page: top gainers/losers tables with 30/60/90 day tabs.
 - **st_scraper.py** - ST Classifieds property scraper. Fetches Commercial/Industrial and Houses for Sale listings from stclassifieds.sg, parses with BeautifulSoup, sends formatted list to Telegram with section headers. Features: owner highlighting (red circle emoji), image links for image-only listings, repeat sighting history tracking via DB.
+- **news_digest.py** - Google News headline digest. Fetches top 10 headlines from Google News RSS via feedparser, formats as numbered HTML list with source and relative timestamps, sends to Telegram every 6 hours.
 - **config.py** - Environment variable config (DATABASE_URL, Telegram, Stripe, CEA API URLs, ST Classifieds URLs).
 - **render.yaml** - Render deployment config: web service (gunicorn) + cron job (runs at 1am and 1pm SGT).
 
@@ -48,6 +49,7 @@ Hosted on Render (render.yaml):
 - Web service: `gunicorn app:app` (starter plan)
 - Cron job: `python scraper.py` at 01:00 and 13:00 UTC (starter plan)
 - Cron job: `python st_scraper.py` at 00:00 UTC / 08:00 SGT (starter plan)
+- Cron job: `python news_digest.py` every 6h at 05:30/11:30/17:30/23:30 UTC (7:30 AM/1:30 PM/7:30 PM/1:30 AM SGT) (starter plan)
 
 ## Key Decisions / History
 
@@ -71,6 +73,9 @@ python scraper.py rollback
 
 # Run ST Classifieds scraper
 python st_scraper.py
+
+# Run news digest
+python news_digest.py
 
 # Run web dashboard locally
 flask run

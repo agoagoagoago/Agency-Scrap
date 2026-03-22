@@ -8,8 +8,6 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: FORMSPREE_ENDPOINT
-        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
@@ -24,8 +22,6 @@ services:
     startCommand: python scraper.py
     envVars:
       - key: DATABASE_URL
-        sync: false
-      - key: FORMSPREE_ENDPOINT
         sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
@@ -47,4 +43,17 @@ services:
       - key: TELEGRAM_CHAT_ID
         sync: false
       - key: ST_TELEGRAM_CHAT_ID
+        sync: false
+
+  - type: cron
+    name: news-digest
+    runtime: python
+    plan: starter
+    schedule: "30 5,11,17,23 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python news_digest.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
         sync: false
