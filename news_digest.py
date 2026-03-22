@@ -14,13 +14,14 @@ log = logging.getLogger(__name__)
 SGT = timezone(timedelta(hours=8))
 
 GOOGLE_NEWS_RSS = "https://news.google.com/rss?hl=en&gl=US&ceid=US:en"
+GOOGLE_NEWS_BUSINESS_RSS = "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en&gl=US&ceid=US:en"
 
 
-def fetch_feed():
-    """Fetch Google News RSS feed with retries."""
+def fetch_feed(url):
+    """Fetch an RSS feed with retries."""
     for attempt in range(1, 4):
         try:
-            resp = requests.get(GOOGLE_NEWS_RSS, timeout=30)
+            resp = requests.get(url, timeout=30)
             resp.raise_for_status()
             log.info("Feed fetched successfully (%d bytes)", len(resp.content))
             return feedparser.parse(resp.content)
@@ -28,7 +29,7 @@ def fetch_feed():
             log.warning("Fetch attempt %d/3 failed: %s", attempt, e)
             if attempt < 3:
                 time.sleep(5 * attempt)
-    raise RuntimeError("Failed to fetch Google News RSS after 3 attempts")
+    raise RuntimeError(f"Failed to fetch RSS feed after 3 attempts: {url}")
 
 
 def _relative_time(published_parsed):
@@ -54,30 +55,37 @@ def _relative_time(published_parsed):
         return ""
 
 
-def format_telegram_message(entries):
-    """Build HTML-formatted news digest for Telegram."""
+def format_telegram_message(sections):
+    """Build HTML-formatted news digest for Telegram.
+
+    Args:
+        sections: list of (section_title, entries) tuples
+    """
     now = datetime.now(SGT)
     date_str = now.strftime("%d %b %Y").lstrip("0")
     time_str = now.strftime("%I:%M %p").lstrip("0")
-    header = f"📰 <b>News Headlines</b> — {date_str}, {time_str}\n"
+    header = f"📰 <b>News Digest</b> — {date_str}, {time_str}\n"
 
-    if not entries:
+    if not any(entries for _, entries in sections):
         return [header + "\nNo headlines found."]
 
     blocks = []
-    for i, entry in enumerate(entries[:10], 1):
-        title = html.escape(entry.get("title", "Untitled"))
-        link = entry.get("link", "")
-        source = html.escape(entry.get("source", {}).get("title", "")) if hasattr(entry.get("source", {}), "get") else ""
-        time_ago = _relative_time(entry.get("published_parsed"))
+    for section_title, entries in sections:
+        count = len(entries)
+        blocks.append(f"\n<b>— {section_title} ({count}) —</b>\n")
+        for i, entry in enumerate(entries, 1):
+            title = html.escape(entry.get("title", "Untitled"))
+            link = entry.get("link", "")
+            source = html.escape(entry.get("source", {}).get("title", "")) if hasattr(entry.get("source", {}), "get") else ""
+            time_ago = _relative_time(entry.get("published_parsed"))
 
-        source_line = ""
-        if source or time_ago:
-            parts = [p for p in [source, time_ago] if p]
-            source_line = f"   {' · '.join(parts)}\n"
+            source_line = ""
+            if source or time_ago:
+                parts = [p for p in [source, time_ago] if p]
+                source_line = f"   {' · '.join(parts)}\n"
 
-        block = f"\n<b>{i}. {title}</b>\n{source_line}   🔗 <a href=\"{link}\">Read more</a>\n"
-        blocks.append(block)
+            block = f"\n<b>{i}. {title}</b>\n{source_line}   🔗 <a href=\"{link}\">Read more</a>\n"
+            blocks.append(block)
 
     # Split into multiple messages if needed (Telegram limit 4096)
     messages = []
@@ -137,10 +145,15 @@ def send_telegram_error(error_msg):
 def run():
     log.info("=== News Digest starting ===")
     try:
-        feed = fetch_feed()
-        entries = feed.get("entries", [])
-        log.info("Found %d entries in feed", len(entries))
-        messages = format_telegram_message(entries)
+        general = fetch_feed(GOOGLE_NEWS_RSS)
+        business = fetch_feed(GOOGLE_NEWS_BUSINESS_RSS)
+        log.info("Found %d general, %d business entries",
+                 len(general.get("entries", [])), len(business.get("entries", [])))
+        sections = [
+            ("Top Headlines", general.get("entries", [])[:10]),
+            ("Financial News", business.get("entries", [])[:10]),
+        ]
+        messages = format_telegram_message(sections)
         send_telegram(messages)
         log.info("=== News Digest complete ===")
     except Exception as e:
