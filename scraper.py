@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 from config import (
-    INITIATE_URL, POLL_URL, POLL_INTERVAL, POLL_MAX_ATTEMPTS, FORMSPREE_ENDPOINT,
+    INITIATE_URL, POLL_URL, POLL_INTERVAL, POLL_MAX_ATTEMPTS,
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
 )
 import db
@@ -148,52 +148,6 @@ def compare(new_rows, old_master):
     }
 
 
-def send_email(metrics):
-    if not FORMSPREE_ENDPOINT:
-        log.info("FORMSPREE_ENDPOINT not set, skipping email")
-        return
-
-    body_lines = [
-        f"Total agencies: {metrics['total_agencies']}",
-        f"Total agents: {metrics['total_agents']}",
-        f"New agencies: {metrics['new_agencies']}",
-        f"Removed agencies: {metrics['removed_agencies']}",
-        f"New agents: {metrics['new_agents']}",
-        f"Removed agents: {metrics['removed_agents']}",
-    ]
-    if metrics.get("new_agency_details"):
-        body_lines.append("\nNewly added agencies:")
-        for name, license_no in metrics["new_agency_details"]:
-            body_lines.append(f"  - {name} ({license_no})")
-    if metrics.get("removed_agency_details"):
-        body_lines.append("\nRemoved agencies:")
-        for name, license_no in metrics["removed_agency_details"]:
-            body_lines.append(f"  - {name} ({license_no})")
-    added_agents = [c for c in metrics.get("changes", []) if c["change_type"] == "added"]
-    removed_agents = [c for c in metrics.get("changes", []) if c["change_type"] == "removed"]
-    if added_agents:
-        body_lines.append("\nNewly added agents:")
-        for a in sorted(added_agents, key=lambda x: x["salesperson_name"]):
-            body_lines.append(f"  - {a['salesperson_name']} ({a['registration_no']}) | {a['estate_agent_name']}")
-    if removed_agents:
-        body_lines.append("\nRemoved agents:")
-        for a in sorted(removed_agents, key=lambda x: x["salesperson_name"]):
-            body_lines.append(f"  - {a['salesperson_name']} ({a['registration_no']}) | {a['estate_agent_name']}")
-    if metrics.get("top_agencies"):
-        body_lines.append("\nTop 20 Agencies by Agent Count:")
-        for i, (name, count) in enumerate(metrics["top_agencies"], 1):
-            body_lines.append(f"  {i}. {name} ({count:,})")
-
-    payload = {
-        "subject": f"CEA Scrape: {metrics['new_agents']} added, {metrics['removed_agents']} removed",
-        "message": "\n".join(body_lines),
-    }
-    resp = requests.post(FORMSPREE_ENDPOINT, json=payload, timeout=30)
-    if resp.ok:
-        log.info("Email sent successfully")
-    else:
-        log.warning("Email send failed: %s %s", resp.status_code, resp.text)
-
 
 def send_telegram(metrics):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -325,7 +279,6 @@ def run():
         ]
         db.replace_master(master_tuples)
 
-        send_email(metrics)
         send_telegram(metrics)
         log.info("=== Scrape complete ===")
 

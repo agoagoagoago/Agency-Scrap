@@ -9,11 +9,12 @@ This app scrapes the CEA public dataset of registered salespersons from data.gov
 ## Architecture
 
 - **scraper.py** - Main scraper logic: initiates download from data.gov.sg API, polls for CSV, downloads and parses it, compares against master DB, records changes, sends notifications. Also has a `rollback()` function to reverse the last scrape run.
-- **db.py** - PostgreSQL database layer using psycopg2. Tables: `agents_master` (current registry), `scrape_runs` (run history with metrics), `scrape_agent_changes` (per-agent add/remove records per run).
-- **app.py** - Flask web dashboard showing latest run metrics and 30-day run history.
-- **templates/dashboard.html** - Dashboard UI template.
+- **db.py** - PostgreSQL database layer using psycopg2. Tables: `agents_master` (current registry), `scrape_runs` (run history with metrics), `scrape_agent_changes` (per-agent add/remove records per run). Includes `get_agency_scorecards(days)` for per-agency net gains/losses over a time window.
+- **app.py** - Flask web dashboard showing latest run metrics, 30-day run history, and agency scorecards.
+- **templates/dashboard.html** - Dashboard UI template with nav link to scorecards.
+- **templates/scorecards.html** - Agency scorecards page: top gainers/losers tables with 30/60/90 day tabs.
 - **st_scraper.py** - ST Classifieds property scraper. Fetches Commercial/Industrial and Houses for Sale listings from stclassifieds.sg, parses with BeautifulSoup, sends formatted list to Telegram with section headers. Features: owner highlighting (red circle emoji), image links for image-only listings, repeat sighting history tracking via DB.
-- **config.py** - Environment variable config (DATABASE_URL, Telegram, Formspree, Stripe, CEA API URLs, ST Classifieds URLs).
+- **config.py** - Environment variable config (DATABASE_URL, Telegram, Stripe, CEA API URLs, ST Classifieds URLs).
 - **render.yaml** - Render deployment config: web service (gunicorn) + cron job (runs at 1am and 1pm SGT).
 
 ## Data Flow
@@ -24,19 +25,18 @@ This app scrapes the CEA public dataset of registered salespersons from data.gov
 4. Compare new data against `agents_master` table
 5. Record run metrics in `scrape_runs`, agent-level changes in `scrape_agent_changes`
 6. Replace `agents_master` with fresh data
-7. Send notifications (email via Formspree, Telegram bot message)
+7. Send Telegram notification
 
 ## Notifications
 
-- **Email**: Via Formspree endpoint
 - **Telegram**: Bot sends to configured chat ID with Markdown formatting
-- Both include: totals, new/removed agencies (with license numbers), new/removed agents (with registration numbers and agency names), top 20 agencies by agent count
+- Includes: totals, new/removed agencies (with license numbers), new/removed agents (with registration numbers and agency names), top 20 agencies by agent count
+- Also includes top 5 agency gainers and top 5 losers (30-day net change) via `get_agency_scorecards()`
 - Error notifications also sent via Telegram on scraper failure
 
 ## Environment Variables
 
 - `DATABASE_URL` - PostgreSQL connection string (required)
-- `FORMSPREE_ENDPOINT` - For email notifications
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` - For Telegram notifications
 - `TELEGRAM_CHANNEL_ID`, `BOT_USERNAME` - Additional Telegram config
 - `ST_TELEGRAM_CHAT_ID` - Telegram chat ID for ST Classifieds notifications (defaults to TELEGRAM_CHAT_ID)
@@ -57,6 +57,8 @@ Hosted on Render (render.yaml):
 - Top agencies list shows 20 (was originally 10)
 - Rollback feature added to reverse last scrape run for testing purposes
 - Notifications include agent details (name, registration number, agency) alongside agency details (name, license number)
+- Agency scorecards feature added: web dashboard page (`/scorecards`) + Telegram summary section showing per-agency net agent gains/losses
+- CEA public register (eservices.cea.gov.sg) is JS-rendered SPA; contact numbers are not exposed in public data (API or website)
 
 ## Commands
 

@@ -1,7 +1,6 @@
 import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-FORMSPREE_ENDPOINT = os.environ.get("FORMSPREE_ENDPOINT", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
